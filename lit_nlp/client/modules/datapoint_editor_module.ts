@@ -26,6 +26,7 @@ import {LitModule} from '../core/lit_module';
 import {defaultValueByField, EdgeLabel, formatEdgeLabel, formatSpanLabel, Input, ModelsMap, SpanLabel, Spec} from '../lib/types';
 import {isLitSubtype} from '../lib/utils';
 import {GroupService} from '../services/group_service';
+import {SelectionService} from '../services/selection_service';
 
 import {styles} from './datapoint_editor_module.css';
 import {styles as sharedStyles} from './shared_styles.css';
@@ -194,12 +195,20 @@ export class DatapointEditorModule extends LitModule {
     const clearEnabled = !!this.selectionService.primarySelectedInputData;
 
     const onClickNew = async () => {
-
       const toCreate = [[this.editedData]];
       const ids = [this.selectionService.primarySelectedId!];
       const datapoints =
           await this.appState.createNewDatapoints(toCreate, ids, 'manual');
       this.selectionService.selectIds(datapoints.map(d => d.id));
+    };
+    const onClickCompare = async () => {
+      const parentId = this.selectionService.primarySelectedId!;
+      await onClickNew();
+      this.appState.compareExamplesEnabled = true;
+      // By default, both selections will be synced to the newly-created
+      // datapoint. We want to set the reference to be the original parent
+      // example.
+      app.getServiceArray(SelectionService)[1].selectIds([parentId]);
     };
     const onClickReset = () => {
       this.resetEditedData(
@@ -208,19 +217,38 @@ export class DatapointEditorModule extends LitModule {
     const onClickClear = () => {
       this.selectionService.selectIds([]);
     };
+
+    const analyzeButton = html`
+      <button id="make" @click=${onClickNew} ?disabled="${!makeEnabled}">
+        Analyze new datapoint
+      </button>
+    `;
+    const compareButton = html`
+      <button id="compare" @click=${onClickCompare} ?disabled="${!makeEnabled}">
+        Add and compare
+      </button>
+    `;
+    const resetButton = html`
+      <button id="reset" @click=${onClickReset}  ?disabled="${!resetEnabled}">
+        Reset
+      </button>
+    `;
+    const clearButton = html`
+      <button id="clear" @click=${onClickClear}  ?disabled="${!clearEnabled}">
+        Clear
+      </button>
+    `;
+
+    // clang-format off
     return html`
       <div class="button-holder">
-        <button id="make"  @click=${onClickNew} ?disabled="${!makeEnabled}">
-          Analyze new datapoint
-        </button>
-        <button id="reset" @click=${onClickReset}  ?disabled="${!resetEnabled}">
-          Reset
-        </button>
-        <button id="reset" @click=${onClickClear}  ?disabled="${!clearEnabled}">
-          Clear
-        </button>
+        ${analyzeButton}
+        ${this.appState.compareExamplesEnabled ? null : compareButton}
+        ${resetButton}
+        ${clearButton}
       </div>
     `;
+    // clang-format off
   }
 
   renderEditText() {
