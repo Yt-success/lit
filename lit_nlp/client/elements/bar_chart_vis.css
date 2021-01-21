@@ -1,0 +1,21 @@
+.loading {
+  opacity: .3;
+}
+
+.spinner-container {
+  position: absolute;
+  top: 90px;
+  left: 210px;
+}
+
+#tooltip {
+  position: fixed;
+  padding: 5px;
+  margin: auto;
+  text-align: center;
+  transform: translate(-50%, -22px);
+  z-index: 10000;
+  font-size: 12px;
+  pointer-events: none;
+  visibility: hidden;
+}

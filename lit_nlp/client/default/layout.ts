@@ -35,6 +35,7 @@ import {SalienceMapModule} from '../modules/salience_map_module';
 import {ScalarModule} from '../modules/scalar_module';
 import {SliceModule} from '../modules/slice_module';
 import {SpanGraphGoldModule, SpanGraphGoldModuleVertical, SpanGraphModule, SpanGraphModuleVertical} from '../modules/span_graph_module';
+import {TCAVModule} from '../modules/tcav_module';
 
 // clang-format off
 const MODEL_PREDS_MODULES: LitModuleType[] = [
@@ -163,6 +164,7 @@ export const LAYOUTS: LitComponentLayouts = {
       'Explanations': [
         ...MODEL_PREDS_MODULES,
         SalienceMapModule,
+        TCAVModule,
         AttentionModule,
       ],
       'Counterfactuals': [GeneratorModule, CounterfactualExplainerModule],
@@ -187,6 +189,7 @@ export const LAYOUTS: LitComponentLayouts = {
       'Explanations': [
         ...MODEL_PREDS_MODULES,
         SalienceMapModule,
+        TCAVModule,
         AttentionModule,
       ],
       'Counterfactuals': [GeneratorModule, CounterfactualExplainerModule],

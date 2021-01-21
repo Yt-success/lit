@@ -1,0 +1,20 @@
+#outer-container {
+  display: flex;
+}
+
+.container {
+  padding: 8px;
+  margin-right: 10px;
+}
+
+.field-name {
+  font-weight: bold;
+}
+
+.dropdown {
+  margin-bottom: 15px;
+}
+
+#submit {
+  margin-left: 0;
+}

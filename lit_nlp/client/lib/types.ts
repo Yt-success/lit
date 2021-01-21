@@ -26,11 +26,10 @@ export type D3Selection = d3.Selection<any, any, any, any>;
 
 export type LitClass = 'LitType';
 export type LitName = 'LitType'|'TextSegment'|'GeneratedText'|'URL'|
-    'SearchQuery'|'Tokens'|
-    'TokenTopKPreds'|'Scalar'|'RegressionScore'|'CategoryLabel'|
-    'MulticlassPreds'|'SequenceTags'|'SpanLabels'|'EdgeLabels'|'Embeddings'|
-    'TokenGradients'|'TokenEmbeddings'|'AttentionHeads'|'SparseMultilabel'|
-    'FieldMatcher';
+    'SearchQuery'|'Tokens'|'TokenTopKPreds'|'Scalar'|'RegressionScore'|
+    'CategoryLabel'|'MulticlassPreds'|'SequenceTags'|'SpanLabels'|'EdgeLabels'|
+    'Embeddings'|'TokenGradients'|'TokenEmbeddings'|'AttentionHeads'|
+    'SparseMultilabel'|'FieldMatcher'|'Gradients';
 
 export interface LitType {
   __class__: LitClass;
@@ -63,7 +62,7 @@ export interface ComponentInfoMap {
 }
 
 export interface CallConfig {
-  [option: string]: string|number|boolean|CallConfig;
+  [option: string]: string|number|boolean|CallConfig|string[];
 }
 
 export interface ModelInfo {
