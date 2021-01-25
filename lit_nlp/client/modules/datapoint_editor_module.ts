@@ -200,6 +200,7 @@ export class DatapointEditorModule extends LitModule {
         meta: {
           source: 'manual',
           added: true,
+          temp: true,
           parentId: this.selectionService.primarySelectedId!
         },
       };

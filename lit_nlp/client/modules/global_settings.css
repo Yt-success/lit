@@ -200,13 +200,25 @@ a:hover {
 }
 
 .expanded-info {
-  display: flex;
   max-height: 0;
   background: #f8f9fa;
   overflow: hidden;
   font-size: 8pt;
   color: #3c4043;
   box-sizing: border-box;
+}
+
+.datapoints-line {
+  display: flex;
+  margin-top: 16px;
+}
+
+.datapoints-button-holder {
+  display: flex;
+}
+
+.expanded-info-line {
+  display: flex;
 }
 
 .expanded-info.open {

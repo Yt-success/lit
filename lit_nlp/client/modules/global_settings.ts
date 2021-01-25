@@ -34,9 +34,9 @@ import {classMap} from 'lit-html/directives/class-map';
 import {action, computed, observable} from 'mobx';
 
 import {app} from '../core/lit_app';
-import {datasetDisplayName, NONE_DS_DICT_KEY} from '../lib/types';
+import {datasetDisplayName, IndexedInput, NONE_DS_DICT_KEY} from '../lib/types';
 import {linkifyUrls} from '../lib/utils';
-import {AppState, SettingsService} from '../services/services';
+import {ApiService, AppState, SettingsService} from '../services/services';
 
 import {styles} from './global_settings.css';
 import {styles as sharedStyles} from './shared_styles.css';
@@ -64,6 +64,7 @@ export class GlobalSettingsComponent extends MobxLitElement {
   static get styles() {
     return [sharedStyles, styles];
   }
+  private readonly apiService = app.getService(ApiService);
   private readonly appState = app.getService(AppState);
   private readonly settingsService = app.getService(SettingsService);
 
@@ -71,6 +72,10 @@ export class GlobalSettingsComponent extends MobxLitElement {
   @observable private selectedLayout: string = '';
   @observable private readonly modelCheckboxValues = new Map<string, boolean>();
   @observable selectedTab: TabName = 'Models';
+
+  @observable private pathForDatapoints: string = '';
+  @observable private pathForDatasetReplacement: string = '';
+  @observable private datapointsStatus: string = '';
 
   // tslint:disable:no-inferrable-new-expression
   @observable private readonly openModelKeys: Set<string> = new Set();
@@ -82,6 +87,16 @@ export class GlobalSettingsComponent extends MobxLitElement {
     const modelEntries = [...this.modelCheckboxValues.entries()];
     return modelEntries.filter(([modelName, isSelected]) => isSelected)
         .map(([modelName, isSelected]) => modelName);
+  }
+
+  @computed
+  get datapointButtonsDisabled() {
+    return this.pathForDatapoints === '';
+  }
+
+  @computed
+  get datasetReplacementButtonDisabled() {
+    return this.pathForDatasetReplacement === '';
   }
 
   /**
@@ -330,6 +345,9 @@ export class GlobalSettingsComponent extends MobxLitElement {
     const renderDatasetSelect = (name: string) => {
       const displayName = datasetDisplayName(name);
       const handleDatasetChange = () => {
+        this.pathForDatapoints = '';
+        this.pathForDatasetReplacement = '';
+        this.datapointsStatus = '';
         this.selectedDataset = name;
       };
 
@@ -373,11 +391,117 @@ export class GlobalSettingsComponent extends MobxLitElement {
           ${modelName} 
         </div>`;
       })}`;
+      const renderDatapointsControls = () => {
+        if (this.selectedDataset !== name || name === NONE_DS_DICT_KEY) {
+          return null;
+        }
+        const updatePath = (e: Event) => {
+          const input = e.target! as HTMLInputElement;
+          this.pathForDatapoints = input.value;
+        };
+        const updateReplacementPath = (e: Event) => {
+          const input = e.target! as HTMLInputElement;
+          this.pathForDatasetReplacement = input.value;
+        };
+        const save = async () => {
+          const newDatapoints = this.appState.currentInputData.filter(
+              input => input.meta['temp']);
+          if (newDatapoints.length === 0) {
+            this.datapointsStatus = 'No new datapoints to save';
+            return;
+          }
+          const newPath = await this.apiService.saveDatapoints(
+              newDatapoints, this.appState.currentDataset,
+              this.pathForDatapoints);
+          for (const datapoint of newDatapoints) {
+            datapoint.meta['temp'] = false;
+          }
+          this.datapointsStatus =
+              `Saved ${newDatapoints.length} datapoint${newDatapoints.length === 1 ? '' : 's'} at ${newPath}`;
+        };
+
+        const load = async () => {
+          const dataset = this.appState.currentDataset;
+          const datapoints =
+              await this.apiService.loadDatapoints(
+                  dataset, this.pathForDatapoints);
+          if (datapoints == null || datapoints.length === 0) {
+            this.datapointsStatus =
+                `No persisted datapoints found in ${this.pathForDatapoints}`;
+            return;
+          }
+          // Update input data for new datapoints.
+          // TODO(lit-dev): consolidate this update logic in appState.
+          datapoints.forEach((entry: IndexedInput) => {
+            entry.meta['temp'] = false;
+            this.appState.currentInputDataById.set(entry.id, entry);
+          });
+          this.datapointsStatus = `Loaded ${datapoints.length} datapoint${datapoints.length === 1 ? '' : 's'} from ${
+              this.pathForDatapoints}`;
+        };
+
+        const loadNewDataset = async () => {
+          const newInfo = await this.apiService.createDataset(
+              this.appState.currentDataset, this.pathForDatasetReplacement);
+          console.log(newInfo);
+          this.appState.metadata = newInfo;
+        };
+        const renderCloseDatasetByPath = () => {
+          return html`
+              <div class='datapoints-line'>
+                <div class='one-col'>
+                  <div class='left-offset'>
+                    <label for="path">File path for dataset replacement:</label><br>
+                    <input type="text" name="path"
+                           value=${this.pathForDatasetReplacement}
+                           @input=${updateReplacementPath}><br>
+                  </div>
+                </div>
+                <div class='two-col'>
+                  <div class='datapoints-button-holder'>
+                    <button
+                      ?disabled=${this.datasetReplacementButtonDisabled}
+                      @click=${loadNewDataset}
+                    >Create new dataset from path
+                    </button>
+                  </div>
+                </div>
+              </div>`;
+        };
+        return html`
+            <div class='datapoints-line'>
+              <div class='one-col'>
+                <div class='left-offset'>
+                  <label for="path">Directory for datapoints:</label><br>
+                  <input type="text" name="path" value=${this.pathForDatapoints}
+                         @input=${updatePath}><br>
+                </div>
+              </div>
+              <div class='two-col'>
+                <div class='datapoints-button-holder'>
+                  <button
+                    ?disabled=${this.datapointButtonsDisabled}
+                    @click=${save}
+                  >Save new datapoints
+                  </button>
+                  <button
+                    ?disabled=${this.datapointButtonsDisabled}
+                    @click=${load}
+                  >Load additional datapoints
+                  </button>
+                </div>
+                <div>${this.datapointsStatus}</div>
+              </div>
+            </div>
+            ${this.appState.metadata.datasets[name].canLoadByPath ?
+                renderCloseDatasetByPath() : null}`;
+      };
       const description = this.appState.metadata.datasets[name].description;
       // clang-format on
       return this.renderLine(
           name, renderSelector, selected, disabled, expanderOpen,
-          onExpanderClick, true, expandedInfoHtml, description);
+          onExpanderClick, true, expandedInfoHtml, description,
+          renderDatapointsControls);
     };
     const configListHTML = allDatasets.map(name => renderDatasetSelect(name));
     // clang-format off
@@ -473,7 +597,7 @@ export class GlobalSettingsComponent extends MobxLitElement {
       name: string, renderSelector: (name: string) => TemplateResult, selected: boolean,
       disabled: boolean, expanderOpen: boolean, onExpanderClick: () => void,
       renderStatus: boolean, expandedInfoHtml: TemplateResult,
-      description = '') {
+      description = '', extraRender?: ()  => TemplateResult|null) {
     const expanderIcon =
         expanderOpen ? 'expand_less' : 'expand_more';  // Icons for arrows.
 
@@ -509,15 +633,18 @@ export class GlobalSettingsComponent extends MobxLitElement {
         </div>
       </div>
       <div class=${expandedInfoClasses}>
-        <div class='one-col'>
-          <div class='left-offset'>
-            ${expandedInfoHtml}
+        <div class='expanded-info-line'>
+          <div class='one-col'>
+            <div class='left-offset'>
+              ${expandedInfoHtml}
+            </div>
+          </div>
+          <div class='two-col'>
+            <div class=info-group-title> Description </div>
+            <div class='description-text'>${formattedDescription}</div>
           </div>
         </div>
-        <div class='two-col'>
-          <div class=info-group-title> Description </div>
-          <div class='description-text'>${formattedDescription}</div>
-        </div>
+        ${extraRender ? extraRender() : null}
       </div>
     `;
   }

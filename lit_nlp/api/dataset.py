@@ -14,14 +14,18 @@
 # ==============================================================================
 # Lint as: python3
 """Base classes for LIT models."""
+import glob
 import inspect
+import os
 import random
+import time
 from types import MappingProxyType  # pylint: disable=g-importing-member
 from typing import List, Dict, Optional, Callable, Mapping, Sequence
 
 from absl import logging
 
 from lit_nlp.api import types
+from lit_nlp.lib import serialize
 from lit_nlp.lib import utils
 
 JsonDict = types.JsonDict
@@ -51,6 +55,7 @@ class Dataset(object):
   _examples: List[JsonDict] = []
   _description: Optional[str] = None
   _base: Optional['Dataset'] = None
+  can_load_by_path = False
 
   def __init__(self,
                spec: Optional[Spec] = None,
@@ -74,6 +79,7 @@ class Dataset(object):
       self._examples = self._base.examples
       self._spec = self._base.spec()
       self._description = self._base.description()
+      self.can_load_by_path = self._base.can_load_by_path
 
     # Override from direct arguments.
     self._examples = examples or self._examples
@@ -91,6 +97,79 @@ class Dataset(object):
       (string) A human-readable description for display in the UI.
     """
     return self._description or inspect.getdoc(self) or ''  # pytype: disable=bad-return-type
+
+  def clone_with_new_path(self, path: str):
+    """Create a new dataset instance based on data from the provided path.
+
+    Subclasses should override this method and set self.can_load_by_path to True
+    in order to allow dynamic loading of new instances of a dataset in the UI
+    through specifying a path.
+
+    Args:
+      path: Path to the dataset to load from disk.
+
+    Returns:
+      (Dataset) A new instance of this class with data from the provided path.
+
+    """
+    if self._base:
+      return self._base.clone_with_new_path(path)
+    return None
+
+  def load_additional(self, dataset_name: str, path: str):
+    """Load and return additional previously-saved datapoints for this dataset.
+
+    Args:
+      dataset_name: The name of the dataset, used for file finding.
+      path: The base path to the persisted datapoint files.
+
+    Returns:
+      (Sequence[IndexedInput]) A list of datapoints from disk.
+
+    """
+    search_path = os.path.join(path, dataset_name) + '*.lit.json'
+    datapoints = []
+    files = glob.glob(search_path)
+    for file_path in files:
+      with open(file_path, 'r') as fd:
+        datapoints.extend(serialize.from_json(fd.read()))
+    return datapoints
+
+  def save_formatted(self, examples: List[JsonDict], path: str):
+    """Save newly-created datapoints to disk in a dataset-specific format.
+
+    Subclasses should override this method if they wish to save new, persisted
+    datapoints in their own file format in addition to the LIT-specific format
+    they are already saved in.
+
+    Args:
+      examples: A list of datapoints to save.
+      path: The base path to save the datapoints to.
+    """
+    if self._base:
+      self._base.save_formatted(examples, path)
+
+  def save_additional(
+      self, examples: List[JsonDict], dataset_name: str, path: str):
+    """Save newly-created datapoints to disk.
+
+    Args:
+      examples: A list of datapoints to save.
+      dataset_name: The name of the dataset, used for file naming.
+      path: The base path to save the datapoints to.
+
+    Returns:
+      The file path of the saved datapoints.
+
+    """
+    timestr = time.strftime('%Y%m%d-%H%M%S')
+    file_name = dataset_name + '_' + timestr
+    new_file_path = os.path.join(path, file_name)
+    self.save_formatted(examples, new_file_path)
+    lit_format_path = new_file_path + '.lit.json'
+    with open(lit_format_path, 'w') as fd:
+      fd.write(serialize.to_json(examples))
+    return lit_format_path
 
   def spec(self) -> Spec:
     """Return a spec describing dataset elements."""
@@ -163,6 +242,11 @@ class IndexedDataset(Dataset):
   def index_all(cls, datasets: Mapping[str, Dataset], id_fn: IdFnType):
     """Convenience function to convert a dict of datasets."""
     return {name: cls(base=ds, id_fn=id_fn) for name, ds in datasets.items()}
+
+  @classmethod
+  def index_single(cls, dataset: Dataset, id_fn: IdFnType):
+    """Convenience function to convert a dataset."""
+    return cls(base=dataset, id_fn=id_fn)
 
   @property
   def indexed_examples(self) -> Sequence[IndexedInput]:

@@ -252,7 +252,7 @@ export class UrlService extends LitService {
       const datum: IndexedInput = {
         data: fields,
         id: '',  // will be overwritten
-        meta: {source: 'url', added: true},
+        meta: {source: 'url', added: true, temp: true},
       };
       const data = await appState.indexDatapoints([datum]);
       appState.commitNewDatapoints(data);

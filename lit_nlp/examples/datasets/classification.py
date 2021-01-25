@@ -36,6 +36,7 @@ class MNLIDataFromTSV(lit_dataset.Dataset):
     return "entailment" if label == "entailment" else "non-entailment"
 
   def __init__(self, path: str):
+    self.can_load_by_path = True
     with open(path) as fd:
       df = pd.read_csv(fd, sep="\t")
     # pylint: disable=g-complex-comprehension
@@ -47,6 +48,10 @@ class MNLIDataFromTSV(lit_dataset.Dataset):
         "genre": row["genre"],
     } for _, row in df.iterrows()]
     # pylint: enable=g-complex-comprehension
+
+  def clone_with_new_path(self, path: str):
+    new_dataset = MNLIDataFromTSV(path)
+    return new_dataset
 
   def spec(self) -> lit_types.Spec:
     """Should match MnliModel's input_spec()."""

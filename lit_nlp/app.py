@@ -18,7 +18,6 @@
 import functools
 import glob
 import os
-import pickle
 import random
 import time
 from typing import Optional, Text, List, Mapping, Sequence, Union
@@ -80,6 +79,7 @@ class LitApp(object):
       dataset_info[name] = {
           'spec': ds.spec(),
           'description': ds.description(),
+          'canLoadByPath': ds.can_load_by_path,
       }
 
     generator_info = {}
@@ -138,13 +138,8 @@ class LitApp(object):
     if self._demo_mode:
       logging.warn('Attempted to save datapoints in demo mode.')
       return None
-    data = data['inputs']
-    timestr = time.strftime('%Y%m%d-%H%M%S')
-    file_name = dataset_name + '_' + timestr + '.pkl'
-    new_file_path = os.path.join(path, file_name)
-    with open(new_file_path, 'wb') as fd:
-      pickle.dump(data, fd)
-    return new_file_path
+    return self._datasets[dataset_name].save_additional(
+        data['inputs'], dataset_name, path)
 
   def _load_datapoints(self, unused_data, dataset_name: Text, path: Text,
                        **unused_kw):
@@ -152,13 +147,8 @@ class LitApp(object):
     if self._demo_mode:
       logging.warn('Attempted to load datapoints in demo mode.')
       return None
-    search_path = os.path.join(path, dataset_name) + '*.pkl'
-    datapoints = []
-    files = glob.glob(search_path)
-    for file_path in files:
-      with open(file_path, 'rb') as fd:
-        datapoints.extend(pickle.load(fd))
-    return datapoints
+    return self._datasets[dataset_name].load_additional(
+        dataset_name, path)
 
   def _get_preds(self,
                  data,
@@ -208,6 +198,26 @@ class LitApp(object):
     """Attempt to get dataset, or override with a specific path."""
     return self._datasets[dataset_name].indexed_examples
 
+  def _create_dataset(self, unused_data, dataset_name: Text = None,
+                      dataset_path: Text = None, **unused_kw):
+    """Attempt to create dataset from a path."""
+
+    assert dataset_name is not None, 'No dataset specified.'
+    assert dataset_path is not None, 'No dataset path specified.'
+    new_dataset_name = dataset_name + '-' + os.path.basename(dataset_path)
+    new_dataset = self._datasets[
+        dataset_name].clone_with_new_path(dataset_path)
+    if new_dataset:
+      ds = self._datasets[
+          dataset_name].clone_with_new_path(dataset_path)
+      self._datasets[
+          new_dataset_name] = lit_dataset.IndexedDataset.index_single(
+              ds, caching.input_hash)
+      self._info = self._build_metadata()
+      return self._info
+    else:
+      return None
+
   def _get_generated(self, data, model: Text, dataset_name: Text,
                      generator: Text, **unused_kw):
     """Generate new datapoints based on the request."""
@@ -228,6 +238,7 @@ class LitApp(object):
             'parentId': parent['id'],
             'source': generator_name,
             'added': True,
+            'temp': True,
         })
     return all_generated_indexed
 
@@ -404,6 +415,7 @@ class LitApp(object):
         '/get_info': self._get_info,
         # Dataset-related endpoints.
         '/get_dataset': self._get_dataset,
+        '/create_dataset': self._create_dataset,
         '/get_generated': self._get_generated,
         '/save_datapoints': self._save_datapoints,
         '/load_datapoints': self._load_datapoints,

@@ -56,6 +56,7 @@ export interface Spec {
 export interface ComponentInfo {
   spec: Spec;
   description?: string;
+  canLoadByPath?: boolean;
 }
 
 export interface ComponentInfoMap {
@@ -100,7 +101,7 @@ export interface Input {
 export interface IndexedInput {
   id: string;
   data: Input;
-  meta: {source?: string; added?: boolean; parentId?: string;};
+  meta: {source?: string; added?: boolean; temp?: boolean; parentId?: string;};
 }
 
 /**
