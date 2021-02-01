@@ -155,24 +155,13 @@ export class LanguageModelPredictionModule extends LitModule {
     this.selectedTokenIndex = maskIndex;
   }
 
-  updated() {
-    if (this.selectedTokenIndex == null) return;
-
-    // Set the correct offset for displaying the predicted tokens.
-    const inputTokenDivs = this.shadowRoot!.querySelectorAll('.token');
-    const maskedInputTokenDiv =
-        inputTokenDivs[this.selectedTokenIndex] as HTMLElement;
-    const offsetX = maskedInputTokenDiv.offsetLeft;
-    const outputTokenDiv =
-        this.shadowRoot!.getElementById('output-words') as HTMLElement;
-    outputTokenDiv.style.marginLeft = `${offsetX - 8}px`;
-  }
-
   render() {
     return html`
       ${this.renderControls()}
-      ${this.renderInputWords()}
-      ${this.renderOutputWords()}
+      <div id='main-area'>
+        ${this.renderInputWords()}
+        ${this.renderOutputWords()}
+      </div>
     `;
   }
 
@@ -204,25 +193,20 @@ export class LanguageModelPredictionModule extends LitModule {
         }
       };
       const classes = classMap({
-        token: true,
-        selected: i === this.selectedTokenIndex,
-        masked: (i === this.selectedTokenIndex) && this.maskApplied,
+        'token': true,
+        'token-chip-label': true,
+        'selected': i === this.selectedTokenIndex,
+        'masked': (i === this.selectedTokenIndex) && this.maskApplied,
       });
       return html`<div class=${classes} @click=${handleClick}>${token}</div>`;
     };
 
-    // clang-format on
-    return html`
-      <div id="input-words">
-        ${this.tokens.map(renderToken)}
-      </div>
-    `;
-    // clang-format off
+    return html`<div id="input-words">${this.tokens.map(renderToken)}</div>`;
   }
 
   renderOutputWords() {
     if (this.selectedTokenIndex === null || this.lmResults === null) {
-      return html``;
+      return html`<div id="output-words" class='sidebar'></div>`;
     }
     const selectedTokenIndex = this.selectedTokenIndex || 0;
 
@@ -232,15 +216,23 @@ export class LanguageModelPredictionModule extends LitModule {
       // Convert probability into percent.
       const predProb = (pred[1] * 100).toFixed(1);
       const classes = classMap({
-        output: true,
-        same: predWordType === selectedWordType,
+        'output-token': true,
+        'token-chip-generated': true,
+        'selected': predWordType === selectedWordType,
       });
-      return html`<div class=${classes}>${predWordType} ${predProb}%</div>`;
+      // clang-format off
+      return html`
+        <div class='output-row'>
+          <div class=${classes}>${predWordType}</div>
+          <div class='token-chip-label output-percent'>${predProb}%</div>
+        </div>
+      `;
+      // clang-format on
     };
 
     // clang-format off
     return html`
-      <div id="output-words">
+      <div id="output-words" class='sidebar sidebar-shaded'>
         ${this.lmResults[selectedTokenIndex].map(renderPred)}
       </div>
     `;
